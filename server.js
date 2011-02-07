@@ -61,7 +61,7 @@ ServiceConnection = {
 		var self = this;
 		self.connect(server);
 		self.add_listeners(callback);
-		CLIENT.write(str + '\r\n');
+		CLIENT.end(str + '\r\n');
 	},
 	
 	connect: function(server){
@@ -125,7 +125,7 @@ if (config.services.beanstalkd) {
 	var BeanstalkdChecker = require('./lib/beanstalkd');
 	var beanstalkd_check = [];
 	config.services.beanstalkd.forEach(function(server, i, a){
-		beanstalkd_check[i] = BeanstalkdChecker.spawn({ SERVER: server }).check(config.check_interval);
+		beanstalkd_check[i] = BeanstalkdChecker.spawn({ SERVER: server }).check(config.check_interval, config.grace_time);
 		var short_name = server.split(/\./)[0];
 		MonitoredServices.add(short_name);
 		app.get('/' + short_name +'.json', function(req, res){
@@ -139,7 +139,7 @@ if (config.services.redis) {
 	var RedisChecker = require('./lib/redis');
 	var redis_check = [];
 	config.services.redis.forEach(function(server, i, a){
-		redis_check[i] = RedisChecker.spawn({ SERVER: server }).check(config.check_interval);
+		redis_check[i] = RedisChecker.spawn({ SERVER: server }).check(config.check_interval, config.grace_time);
 		var short_name = server.split(/\./)[0];
 		MonitoredServices.add(short_name);
 		app.get('/' + short_name + '.json', function(req, res){
@@ -153,7 +153,7 @@ if (config.services.dir) {
 	var DirChecker = require('./lib/dir');
 	var dir_check = [];
 	config.services.dir.forEach(function(dir, i, a){
-		dir_check[i] = DirChecker.spawn({ DIR: dir }).check(config.check_interval);
+		dir_check[i] = DirChecker.spawn({ DIR: dir }).check(config.check_interval, config.grace_time);
 		app.get('/dir.json', function(req, res){
 			dir_check[i].web_response(req, res);
 		});
