@@ -8,7 +8,7 @@ exec = require('child_process').exec;
 net = require('net');
 mailer = require('mailer');
 express = require('express'); 
-aws = require("aws-lib");
+// aws = require("aws-lib");
 
 // load config
 if (process.argv[2]) {
