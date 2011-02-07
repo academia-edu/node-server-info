@@ -9,5 +9,12 @@ module.exports = {
 	},
 	ec2_key: 'KEYKEYKEY',
 	ec2_secret: 'SECRETSECRETSECRET',
+	smtp: {
+		address: 'smtp.server.com',
+        port: '25',
+        domain: 'server.com',
+        username: 'user',
+        password: 'pass',
+	},
 
 };

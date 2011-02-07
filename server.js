@@ -4,6 +4,7 @@
 http = require('http');
 fs = require('fs');
 sys = require('sys');
+exec = require('child_process').exec;
 net = require('net');
 mailer = require('mailer');
 express = require('express'); 
@@ -20,10 +21,32 @@ var config = require('./conf/' + config_file);
 
 FailureReporter = {
 	
-	report: function(data){		
-		// Do something more meaningful
-		sys.puts('FAILURE:' + data)
-		// ec2 = aws.createSESClient('key', '');
+	report: function(server, failure){	
+		var self = this;
+		if (config.smtp && config.email_failures) {
+			self.send_email(server, failure);
+		};
+	},
+	
+	send_email: function(server, failure){
+		var msg = {
+			host : config.smtp.address,
+			port : config.smtp.port,
+			domain : config.smtp.domain,
+			authentication : 'login',
+			username : Buffer(config.smtp.username).toString('base64'),
+			password : Buffer(config.smtp.password).toString('base64'),
+			to : config.email_failures,
+			from : 'zoo@academia.edu',
+			subject : 'Check failure on ' + server,
+			body: failure,
+		};
+		if (my_hostname) {
+			msg.subject = '[ ' + my_hostname + ' ] Check failure on ' + server;
+		};
+		mailer.send(msg, function(err, result){
+			if(err){ sys.log(err); }
+		});
 	},
 }
 
@@ -59,43 +82,87 @@ ServiceConnection = {
 			
 };
 
+var SystemCommand = {
+	
+	ask: function(cmd, callback){
+		exec(cmd, function (err, stdout, stderr) {
+			if (stderr) {
+				return callback(false, stderr);
+			} else {
+				return callback(true, stdout);
+			};
+		});
+	},
+}
+
+var MonitoredServices = {
+	
+	SERVICES: [],
+	
+	add: function(short_name){
+		var self = this;
+		self.SERVICES.push(short_name);
+		sys.log('/' + short_name + '.json avaiable');
+	},
+}
+
 var app = express.createServer();
 
 require('./lib/core');
 var BaseChecker = require('./lib/base_checker');
 
+var my_hostname = null;
+SystemCommand.ask('hostname', function(succ, response) {
+	if (succ) {
+		my_hostname = response;
+	};
+})
+
 // beanstalkd
-var BeanstalkdChecker = require('./lib/beanstalkd');
-var beanstalkd_check = [];
-config.services.beanstalkd.forEach(function(server, i, a){
-	beanstalkd_check[i] = BeanstalkdChecker.spawn({ SERVER: server }).check(config.check_interval);
-	app.get('/beanstalkd.json', function(req, res){
-		beanstalkd_check[i].web_response(req, res);
+if (config.services.beanstalkd) {
+	var BeanstalkdChecker = require('./lib/beanstalkd');
+	var beanstalkd_check = [];
+	config.services.beanstalkd.forEach(function(server, i, a){
+		beanstalkd_check[i] = BeanstalkdChecker.spawn({ SERVER: server }).check(config.check_interval);
+		var short_name = server.split(/\./)[0];
+		MonitoredServices.add(short_name);
+		app.get('/' + short_name +'.json', function(req, res){
+			beanstalkd_check[i].web_response(req, res);
+		});
 	});
-});
+};
 
 // redis
-var RedisChecker = require('./lib/redis');
-var redis_check = [];
-config.services.redis.forEach(function(server, i, a){
-	redis_check[i] = RedisChecker.spawn({ SERVER: server }).check(config.check_interval);
-	app.get('/redis.json', function(req, res){
-		redis_check[i].web_response(req, res);
+if (config.services.redis) {
+	var RedisChecker = require('./lib/redis');
+	var redis_check = [];
+	config.services.redis.forEach(function(server, i, a){
+		redis_check[i] = RedisChecker.spawn({ SERVER: server }).check(config.check_interval);
+		var short_name = server.split(/\./)[0];
+		MonitoredServices.add(short_name);
+		app.get('/' + short_name + '.json', function(req, res){
+			redis_check[i].web_response(req, res);
+		});
 	});
-});
+};
 
 // directory existance
-var DirChecker = require('./lib/dir');
-var dir_check = [];
-config.services.dir.forEach(function(dir, i, a){
-	dir_check[i] = DirChecker.spawn({ DIR: dir }).check(config.check_interval);
-	app.get('/dir.json', function(req, res){
-		dir_check[i].web_response(req, res);
+if (config.services.dir) {
+	var DirChecker = require('./lib/dir');
+	var dir_check = [];
+	config.services.dir.forEach(function(dir, i, a){
+		dir_check[i] = DirChecker.spawn({ DIR: dir }).check(config.check_interval);
+		app.get('/dir.json', function(req, res){
+			dir_check[i].web_response(req, res);
+		});
 	});
-});
+};
 
 // RAM free
-var RAMChecker = require('./lib/ram');
+if (config.services.dir) {
+	var RAMChecker = require('./lib/ram');
+	var ram_check = [];
+};
 
 // app revision
 app.get('/revision.json', function(req, res){
@@ -105,5 +172,15 @@ app.get('/revision.json', function(req, res){
 		res.send('{"revision": "' + data + '"}', { 'Content-Type': 'application/json' }, 200);
 	});
 });
+
+// root
+app.get('/', function(req, res){
+	var links = [];
+	MonitoredServices.SERVICES.forEach(function(e, i, a){
+		links.push("<a href='" + e + ".json'>" + e + ".json</a>")
+	});
+	res.send(links);
+});
+
 
 app.listen(config.http_port);
