@@ -8,7 +8,7 @@ var express = require('express');
 // var io = require('socket.io');
 
 // var aws = require("aws-lib");
-// ec2 = aws.createSESClient('0XGAZE282T5ZEMSNEY02', 'r9Trowhb/AQKzfdaCIKl6YK1m017rvV+YtvOJlh/');
+// ec2 = aws.createSESClient('key', 'secret');
 
 var FailureReporter = {
 	
