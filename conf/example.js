@@ -9,12 +9,14 @@ module.exports = {
 	},
 	ec2_key: 'KEYKEYKEY',
 	ec2_secret: 'SECRETSECRETSECRET',
+	email_failures: 'team@server.com',
 	smtp: {
 		address: 'smtp.server.com',
         port: '25',
         domain: 'server.com',
         username: 'user',
         password: 'pass',
+		from: 'notifier@server.com',
 	},
 
 };

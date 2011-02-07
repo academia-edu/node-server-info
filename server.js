@@ -23,26 +23,28 @@ FailureReporter = {
 	
 	report: function(server, failure){	
 		var self = this;
+		var subject = 'Check failure on ' + server
+		if (my_hostname) {
+			subject = '[ ' + my_hostname + ' ] Check failure on ' + server;
+		};
+		sys.log('FAILURE: ' + subject)
 		if (config.smtp && config.email_failures) {
-			self.send_email(server, failure);
+			self.send_email(server, subject, failure);
 		};
 	},
 	
-	send_email: function(server, failure){
+	send_email: function(server, subject, failure){
 		var msg = {
-			host : config.smtp.address,
-			port : config.smtp.port,
-			domain : config.smtp.domain,
-			authentication : 'login',
-			username : Buffer(config.smtp.username).toString('base64'),
-			password : Buffer(config.smtp.password).toString('base64'),
-			to : config.email_failures,
-			from : 'zoo@academia.edu',
-			subject : 'Check failure on ' + server,
+			host: config.smtp.address,
+			port: config.smtp.port,
+			domain: config.smtp.domain,
+			authentication: 'login',
+			username: Buffer(config.smtp.username).toString('base64'),
+			password: Buffer(config.smtp.password).toString('base64'),
+			to: config.email_failures,
+			from: config.smtp.from,
+			subject: subject,
 			body: failure,
-		};
-		if (my_hostname) {
-			msg.subject = '[ ' + my_hostname + ' ] Check failure on ' + server;
 		};
 		mailer.send(msg, function(err, result){
 			if(err){ sys.log(err); }
@@ -114,7 +116,7 @@ var BaseChecker = require('./lib/base_checker');
 var my_hostname = null;
 SystemCommand.ask('hostname', function(succ, response) {
 	if (succ) {
-		my_hostname = response;
+		my_hostname = response.trim();
 	};
 })
 
